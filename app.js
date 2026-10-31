@@ -1,4 +1,3 @@
-// Major services with JustWatch package IDs and open URLs
 const SERVICES = [
   { id: "nfx", name: "Netflix", url: "https://www.netflix.com", searchUrl: "https://www.netflix.com/search?q=" },
   { id: "dnp", name: "Disney+", url: "https://www.disneyplus.com", searchUrl: "https://www.disneyplus.com/search?q=" },
@@ -14,35 +13,16 @@ const SERVICES = [
 
 const GRAPHQL_URL = "https://apis.justwatch.com/graphql";
 
-const SEARCH_QUERY = `
-query GetSearchTitles($searchTitlesFilter: TitleFilter!, $country: Country!, $language: Language!, $first: Int!) {
-  popularTitles(country: $country, filter: $searchTitlesFilter, first: $first, sortBy: POPULAR) {
-    edges {
-      node {
-        id
-        objectId
-        objectType
-        title
-        originalReleaseYear
-        offers {
-          monetizationType
-          package { packageId shortName clearName }
-          standardWebURL
-        }
-      }
-    }
-  }
-}`;
+const SEARCH_QUERY = `query GetSearchTitles($searchTitlesFilter: TitleFilter!, $country: Country!, $language: Language!, $first: Int!) { popularTitles(country: $country, filter: $searchTitlesFilter, first: $first, sortBy: POPULAR) { edges { node { id objectId objectType title originalReleaseYear offers { monetizationType package { packageId shortName clearName } standardWebURL } } } } }`;
 
 let selectedServices = new Set(JSON.parse(localStorage.getItem("streamfinder_services") || "[]"));
 
 function init() {
-  document.getElementById("tab-search").onclick = () => showView("search");
-  document.getElementById("tab-services").onclick = () => showView("services");
+  document.getElementById("tab-search").onclick = function() { showView("search"); };
+  document.getElementById("tab-services").onclick = function() { showView("services"); };
   document.getElementById("search-btn").onclick = doSearch;
-  document.getElementById("query").onkeydown = (e) => { if (e.key === "Enter") doSearch(); };
+  document.getElementById("query").onkeydown = function(e) { if (e.key === "Enter") doSearch(); };
   document.getElementById("save-services").onclick = saveServices;
-
   renderServiceList();
   renderLoginLinks();
   showView("search");
@@ -57,25 +37,29 @@ function showView(name) {
 
 function renderServiceList() {
   const el = document.getElementById("service-list");
-  el.innerHTML = SERVICES.map(s => `
-    <label class="service-item">
-      <input type="checkbox" data-id="${s.id}" ${selectedServices.has(s.id) ? "checked" : ""} />
-      <span>${s.name}</span>
-    </label>
-  `).join("");
+  var html = "";
+  for (var i = 0; i < SERVICES.length; i++) {
+    var s = SERVICES[i];
+    var checked = selectedServices.has(s.id) ? " checked" : "";
+    html += '<label class="service-item"><input type="checkbox" data-id="' + s.id + '"' + checked + ' /><span>' + s.name + '</span></label>';
+  }
+  el.innerHTML = html;
 }
 
 function renderLoginLinks() {
   const el = document.getElementById("login-links");
-  el.innerHTML = SERVICES.map(s => `
-    <a href="${s.url}" target="_blank" rel="noopener">${s.name}</a>
-  `).join("");
+  var html = "";
+  for (var i = 0; i < SERVICES.length; i++) {
+    var s = SERVICES[i];
+    html += '<a href="' + s.url + '" target="_blank" rel="noopener">' + s.name + '</a>';
+  }
+  el.innerHTML = html;
 }
 
 function saveServices() {
   const checks = document.querySelectorAll("#service-list input:checked");
-  selectedServices = new Set([...checks].map(c => c.dataset.id));
-  localStorage.setItem("streamfinder_services", JSON.stringify([...selectedServices]));
+  selectedServices = new Set(Array.from(checks).map(function(c) { return c.dataset.id; }));
+  localStorage.setItem("streamfinder_services", JSON.stringify(Array.from(selectedServices)));
   alert("Saved. Your selections will be used for future searches.");
 }
 
@@ -83,86 +67,70 @@ async function doSearch() {
   const q = document.getElementById("query").value.trim();
   if (!q) return;
   const resultsEl = document.getElementById("results");
-  resultsEl.innerHTML = "<p>Searching…</p>";
-
+  resultsEl.innerHTML = "<p>Searching...</p>";
   try {
     const res = await fetch(GRAPHQL_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: SEARCH_QUERY,
-        variables: {
-          searchTitlesFilter: { searchQuery: q },
-          country: "US",
-          language: "en",
-          first: 8
-        }
+        variables: { searchTitlesFilter: { searchQuery: q }, country: "US", language: "en", first: 8 }
       })
     });
     const data = await res.json();
-    const edges = data?.data?.popularTitles?.edges || [];
-    renderResults(edges, q);
+    const edges = (data && data.data && data.data.popularTitles && data.data.popularTitles.edges) || [];
+    renderResults(edges);
   } catch (err) {
-    resultsEl.innerHTML = `<p>Error searching. Try again later.</p>`;
-    console.error(err);
+    resultsEl.innerHTML = "<p>Error searching. Try again later.</p>";
   }
 }
 
-function renderResults(edges, originalQuery) {
+function renderResults(edges) {
   const resultsEl = document.getElementById("results");
   if (!edges.length) {
     resultsEl.innerHTML = "<p>No results found.</p>";
     return;
   }
-
-  resultsEl.innerHTML = edges.map(edge => {
-    const node = edge.node;
-    const myOffers = (node.offers || []).filter(o => 
-      selectedServices.has(o.package?.packageId) && o.monetizationType === "FLATRATE"
-    );
-
-    let offersHtml = "";
-    if (myOffers.length) {
-      offersHtml = myOffers.map(o => {
-        const svc = SERVICES.find(s => s.id === o.package.packageId);
-        const openUrl = o.standardWebURL || (svc ? svc.searchUrl + encodeURIComponent(node.title) : "#");
-        return `
-          <div class="offer">
-            <div>
-              <strong>${o.package.clearName || o.package.shortName}</strong>
-              <div style="font-size:0.8rem;color:#94a3b8">Included with subscription</div>
-            </div>
-            <div class="offer-actions">
-              <button onclick="copyQuery('${escapeHtml(node.title)}')">Copy title</button>
-              <a href="${openUrl}" target="_blank" rel="noopener">Open</a>
-            </div>
-          </div>`;
-      }).join("");
-    } else {
-      offersHtml = `<div class="offer"><span style="color:#94a3b8">Not found on your selected services (or data lag).</span></div>`;
+  var html = "";
+  for (var i = 0; i < edges.length; i++) {
+    var node = edges[i].node;
+    var offers = node.offers || [];
+    var myOffers = [];
+    for (var j = 0; j < offers.length; j++) {
+      var o = offers[j];
+      if (selectedServices.has(o.package && o.package.packageId) && o.monetizationType === "FLATRATE") {
+        myOffers.push(o);
+      }
     }
-
-    return `
-      <div class="card">
-        <h3>${escapeHtml(node.title)} ${node.originalReleaseYear ? `(${node.originalReleaseYear})` : ""}</h3>
-        <div style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.5rem">${node.objectType}</div>
-        ${offersHtml}
-      </div>`;
-  }).join("");
+    html += '<div class="card"><h3>' + (node.title || "") + (node.originalReleaseYear ? " (" + node.originalReleaseYear + ")" : "") + '</h3>';
+    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.5rem">' + (node.objectType || "") + '</div>';
+    if (myOffers.length) {
+      for (var k = 0; k < myOffers.length; k++) {
+        var o = myOffers[k];
+        var svc = null;
+        for (var m = 0; m < SERVICES.length; m++) {
+          if (SERVICES[m].id === (o.package && o.package.packageId)) svc = SERVICES[m];
+        }
+        var openUrl = o.standardWebURL || (svc ? svc.searchUrl + encodeURIComponent(node.title) : "#");
+        html += '<div class="offer"><div><strong>' + ((o.package && (o.package.clearName || o.package.shortName)) || "") + '</strong><div style="font-size:0.8rem;color:#94a3b8">Included with subscription</div></div>';
+        html += '<div class="offer-actions"><button onclick="copyQuery(\'' + (node.title || "").replace(/'/g, "") + '\')">Copy title</button>';
+        html += '<a href="' + openUrl + '" target="_blank" rel="noopener">Open</a></div></div>';
+      }
+    } else {
+      html += '<div class="offer"><span style="color:#94a3b8">Not found on your selected services (or data lag).</span></div>';
+    }
+    html += '</div>';
+  }
+  resultsEl.innerHTML = html;
 }
 
 function copyQuery(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    alert("Copied: " + text + "\nPaste it in the service's search.");
-  }).catch(() => {
+  navigator.clipboard.writeText(text).then(function() {
+    alert("Copied: " + text + "\nPaste it in the service search.");
+  }).catch(function() {
     prompt("Copy this title:", text);
   });
 }
 
-function escapeHtml(str) {
-  return str.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"').replace(/'/g, '&#39;');
-}
-
 window.copyQuery = copyQuery;
-
 init();
