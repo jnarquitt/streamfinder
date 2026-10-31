@@ -16,3 +16,5 @@ A simple Progressive Web App that helps you find which of your subscribed stream
 4. Search
 
 This is an efficiency tool — it does not maintain logins or guarantee perfect deep links.
+
+Last updated: force rebuild for Pages.
