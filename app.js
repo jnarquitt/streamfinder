@@ -160,13 +160,14 @@ function copyQuery(text) {
 }
 
 function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, m => ({
-    "&": "&",
-    "<": "<",
-    ">": ">",
-    '"': """,
-    "'": "&#39;"
-  }[m]));
+  return str.replace(/[&<>"']/g, function(m) {
+    if (m === "&") return "&";
+    if (m === "<") return "<";
+    if (m === ">") return ">";
+    if (m === '"') return """;
+    if (m === "'") return "&#39;";
+    return m;
+  });
 }
 
 // Make copyQuery available globally for onclick
