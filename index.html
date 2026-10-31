@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>StreamFinder</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>StreamFinder</h1>
+    <nav>
+      <button id="tab-search" class="active">Search</button>
+      <button id="tab-services">My Services</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Search view -->
+    <section id="view-search">
+      <div class="search-box">
+        <input id="query" type="search" placeholder="Search a movie or show…" autocomplete="off" />
+        <button id="search-btn">Search</button>
+      </div>
+      <div id="results"></div>
+    </section>
+
+    <!-- Services view -->
+    <section id="view-services" hidden>
+      <p class="hint">Select the services you subscribe to. This is saved on your device.</p>
+      <div id="service-list"></div>
+      <button id="save-services">Save</button>
+      <hr />
+      <h2>Quick Login / Open</h2>
+      <div id="login-links"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
