@@ -63,6 +63,25 @@ function saveServices() {
   alert("Saved. Your selections will be used for future searches.");
 }
 
+function showFallback(q) {
+  const resultsEl = document.getElementById("results");
+  var html = '<div class="card"><h3>' + q + '</h3><p style="color:#94a3b8;font-size:0.9rem">Availability check is blocked by the service. Use these direct search links for the services you selected:</p>';
+  var hasAny = false;
+  for (var i = 0; i < SERVICES.length; i++) {
+    var s = SERVICES[i];
+    if (selectedServices.has(s.id) || selectedServices.size === 0) {
+      hasAny = true;
+      var searchLink = s.searchUrl + encodeURIComponent(q);
+      html += '<div class="offer"><div><strong>' + s.name + '</strong></div><div class="offer-actions"><button onclick="copyQuery(\'' + q.replace(/'/g, "") + '\')">Copy title</button><a href="' + searchLink + '" target="_blank" rel="noopener">Open</a></div></div>';
+    }
+  }
+  if (!hasAny) {
+    html += '<p>Select services in the My Services tab first.</p>';
+  }
+  html += '</div>';
+  resultsEl.innerHTML = html;
+}
+
 async function doSearch() {
   const q = document.getElementById("query").value.trim();
   if (!q) return;
@@ -77,11 +96,16 @@ async function doSearch() {
         variables: { searchTitlesFilter: { searchQuery: q }, country: "US", language: "en", first: 8 }
       })
     });
+    if (!res.ok) throw new Error("API blocked");
     const data = await res.json();
     const edges = (data && data.data && data.data.popularTitles && data.data.popularTitles.edges) || [];
-    renderResults(edges);
+    if (edges.length) {
+      renderResults(edges);
+    } else {
+      showFallback(q);
+    }
   } catch (err) {
-    resultsEl.innerHTML = "<p>Error searching. Try again later.</p>";
+    showFallback(q);
   }
 }
 
